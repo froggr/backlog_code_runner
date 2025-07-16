@@ -9,7 +9,9 @@
   "scripts": {
     "start": "node src/simple-runner.js",
     "dev": "node src/simple-runner.js",
-    "runner": "node src/simple-runner.js"
+    "runner": "node src/simple-runner.js",
+    "global": "npm install -g .",
+    "uninstall": "npm uninstall -g backlog-opencode-runner"
   },
   "dependencies": {},
   "engines": {
@@ -25,5 +27,6 @@
     "kanban"
   ],
   "author": "Your Name",
-  "license": "MIT"
+  "license": "MIT",
+  "preferGlobal": true
 }

@@ -1,6 +1,9 @@
 # Backlog directory - task management should not be versioned
 backlog/
 
+# Agent worktree directory - temporary working directory for agent
+.agent-worktree/
+
 # Node modules
 node_modules/
 

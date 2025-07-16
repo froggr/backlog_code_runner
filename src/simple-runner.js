@@ -445,85 +445,39 @@ ${outputLog.trim()}
     try {
       this.log(`🚀 Starting task: ${task.title}`, "info");
 
-      // Always use 'agent' branch for all work
-      const branchName = "agent";
+      // Setup git worktree for agent work
+      const worktreePath = await this.setupAgentWorktree();
+      const originalCwd = process.cwd();
 
-      // No need to stash since backlog files are gitignored
-
-      this.log(`🌿 Switching to agent branch...`, "info");
       try {
-        this.exec(`git checkout ${branchName}`);
+        // Change to worktree directory
+        process.chdir(worktreePath);
+        this.log(`📁 Working in agent worktree: ${worktreePath}`, "info");
 
-        // Check if there are changes in main that need to be merged
-        this.log(
-          `🔄 Checking for changes to merge from ${config.mainBranch}...`,
-          "info",
-        );
+        // Run OpenCode in the worktree
+        this.log("📝 About to run OpenCode...", "info");
+        await this.runOpenCode(task);
+        this.log("✅ OpenCode execution completed", "success");
+
+        // Commit changes in worktree
+        this.log("📦 Staging changes...", "info");
+        this.exec("git add .");
+
         try {
-          const mergeBase = this.exec(
-            `git merge-base ${branchName} ${config.mainBranch}`,
-            { silent: true },
-          );
-          const mainHead = this.exec(`git rev-parse ${config.mainBranch}`, {
-            silent: true,
-          });
-
-          if (mergeBase.trim() !== mainHead.trim()) {
-            this.log(
-              `📥 Found changes in ${config.mainBranch}, merging...`,
-              "info",
-            );
-            this.exec(`git merge ${config.mainBranch} --no-edit`);
-            this.log(
-              `✅ Successfully merged changes from ${config.mainBranch}`,
-              "success",
-            );
-          } else {
-            this.log(
-              `✅ Agent branch is up to date with ${config.mainBranch}`,
-              "info",
-            );
-          }
-        } catch (mergeError) {
-          this.log(`⚠️ Could not auto-merge: ${mergeError.message}`, "warning");
-          this.log(`💡 You may need to resolve conflicts manually`, "warning");
+          this.exec("git diff --cached --exit-code", { silent: true });
+          this.log("ℹ️ No changes to commit", "warning");
+        } catch {
+          const commitMessage = task.isRevision
+            ? `fix: address feedback for ${task.title}`
+            : `feat: implement ${task.title}`;
+          this.exec(`git commit -m "${commitMessage}"`);
+          this.log("💾 Changes committed in agent worktree", "success");
         }
-      } catch (error) {
-        // Branch doesn't exist, create it
-        this.log(`📝 Creating agent branch...`, "info");
-        this.exec(`git checkout ${config.mainBranch}`);
-        this.exec(`git checkout -b ${branchName}`);
-      }
 
-      // Run OpenCode
-      this.log("📝 About to run OpenCode...", "info");
-      await this.runOpenCode(task);
-      this.log("✅ OpenCode execution completed", "success");
-
-      // Commit changes
-      this.log("📦 Staging changes...", "info");
-      this.exec("git add .");
-
-      try {
-        this.exec("git diff --cached --exit-code", { silent: true });
-        this.log("ℹ️ No changes to commit", "warning");
-      } catch {
-        const commitMessage = task.isRevision
-          ? `fix: address feedback for ${task.title}`
-          : `feat: implement ${task.title}`;
-        this.exec(`git commit -m "${commitMessage}"`);
-        this.log("💾 Changes committed", "success");
-      }
-
-      // LOCAL ONLY - NO REMOTE PUSH OR PR CREATION
-      this.log("✅ Changes committed locally", "success");
-
-      // OpenCode will handle moving task to review column
-      // Return to main branch SAFELY
-      try {
-        this.exec(`git checkout ${config.mainBranch}`);
-      } catch (error) {
-        this.log("⚠️ Could not return to main branch", "warning");
+        this.log("✅ Changes committed locally in agent worktree", "success");
+      } finally {
+        // Always return to original directory
+        process.chdir(originalCwd);
       }
 
       this.log(`🎉 Task completed: ${task.title}`, "success");
@@ -531,16 +485,61 @@ ${outputLog.trim()}
     } catch (error) {
       this.log(`❌ Task failed: ${error.message}`, "error");
       this.stats.errors++;
-
-      // SAFE ERROR RECOVERY - return to main branch
-      try {
-        this.exec(`git checkout ${config.mainBranch}`);
-      } catch (e) {
-        this.log("⚠️ Could not return to main branch", "warning");
-      }
+      throw error;
     } finally {
       this.isProcessing = false;
       this.currentTask = null;
+    }
+  }
+
+  async setupAgentWorktree() {
+    const worktreePath = path.join(process.cwd(), ".agent-worktree");
+    const branchName = "agent";
+
+    try {
+      // Check if worktree already exists
+      if (fs.existsSync(worktreePath)) {
+        this.log("🔄 Agent worktree already exists, updating...", "info");
+
+        // Update the worktree with latest main changes
+        const currentDir = process.cwd();
+        process.chdir(worktreePath);
+
+        try {
+          this.exec(`git merge ${config.mainBranch} --no-edit`);
+          this.log("✅ Agent worktree updated with latest main", "success");
+        } catch (error) {
+          this.log(
+            `⚠️ Could not merge main into agent worktree: ${error.message}`,
+            "warning",
+          );
+        }
+
+        process.chdir(currentDir);
+        return worktreePath;
+      }
+
+      // Create agent branch if it doesn't exist
+      try {
+        this.exec(`git show-ref --verify --quiet refs/heads/${branchName}`, {
+          silent: true,
+        });
+        this.log(`🌿 Agent branch exists`, "info");
+      } catch (error) {
+        this.log(`📝 Creating agent branch...`, "info");
+        this.exec(`git checkout -b ${branchName}`);
+        this.exec(`git checkout ${config.mainBranch}`);
+      }
+
+      // Create worktree
+      this.log(`🏗️ Creating agent worktree...`, "info");
+      this.exec(`git worktree add ${worktreePath} ${branchName}`);
+      this.log(`✅ Agent worktree created at ${worktreePath}`, "success");
+
+      return worktreePath;
+    } catch (error) {
+      this.log(`❌ Failed to setup agent worktree: ${error.message}`, "error");
+      throw error;
     }
   }
 
@@ -590,7 +589,7 @@ ${outputLog.trim()}
         `✅ Successfully merged agent branch into ${config.mainBranch}`,
         "success",
       );
-      this.log(`💡 Agent branch is still available for future work`, "info");
+      this.log(`💡 Agent worktree is still available for future work`, "info");
     } catch (error) {
       this.log(`❌ Failed to merge agent branch: ${error.message}`, "error");
       this.log(`💡 You may need to resolve conflicts manually`, "warning");
@@ -599,7 +598,16 @@ ${outputLog.trim()}
 
   deleteAgentBranch() {
     try {
-      this.log(`🗑️ Deleting agent branch...`, "info");
+      this.log(`🗑️ Deleting agent branch and worktree...`, "info");
+
+      const worktreePath = path.join(process.cwd(), ".agent-worktree");
+
+      // Remove worktree if it exists
+      if (fs.existsSync(worktreePath)) {
+        this.log(`🗑️ Removing agent worktree...`, "info");
+        this.exec(`git worktree remove ${worktreePath} --force`);
+        this.log(`✅ Agent worktree removed`, "success");
+      }
 
       // Check if agent branch exists
       try {
@@ -623,8 +631,8 @@ ${outputLog.trim()}
       // Delete the agent branch
       this.exec(`git branch -D agent`);
 
-      this.log(`✅ Successfully deleted agent branch`, "success");
-      this.log(`💡 Future tasks will create a new agent branch`, "info");
+      this.log(`✅ Successfully deleted agent branch and worktree`, "success");
+      this.log(`💡 Future tasks will create a new agent worktree`, "info");
     } catch (error) {
       this.log(`❌ Failed to delete agent branch: ${error.message}`, "error");
     }
@@ -728,7 +736,7 @@ ${outputLog.trim()}
       `  [R]efresh • [S]tart • [A]uto • [M]erge • [D]elete • [Q]uit • ${autoStatus}`,
     );
     console.log(
-      `${colors.gray}  [M] = Merge agent branch to main • [D] = Delete agent branch${colors.reset}`,
+      `${colors.gray}  [M] = Merge agent branch to main • [D] = Delete agent worktree${colors.reset}`,
     );
     console.log();
 
