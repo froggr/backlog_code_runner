@@ -319,86 +319,26 @@ class SimpleRunner {
 
       this.log("🤖 Running OpenCode...", "info");
       this.log(`📝 Prompt: ${prompt.substring(0, 100)}...`, "info");
-      this.log(`⏱️ Timeout set to: ${config.timeout / 1000} seconds`, "info");
+      this.log("🔄 OpenCode will run in interactive mode", "info");
 
-      const child = spawn("opencode", ["run", prompt, "--print-logs"], {
-        stdio: "pipe",
+      const child = spawn("opencode", ["run", prompt], {
+        stdio: "inherit",
         timeout: config.timeout,
       });
 
-      let output = "";
-      let lastLogTime = Date.now();
-
-      child.stdout.on("data", (data) => {
-        output += data.toString();
-        const now = Date.now();
-
-        // Log progress with more detail and timing
-        const lines = data
-          .toString()
-          .split("\n")
-          .filter((line) => line.trim());
-
-        lines.forEach((line) => {
-          if (line.trim()) {
-            this.log(`OpenCode: ${line.trim()}`, "info");
-          }
-        });
-
-        // Show activity indicator every 10 seconds if no new output
-        if (now - lastLogTime > 10000) {
-          this.log("🔄 OpenCode still running...", "info");
-          lastLogTime = now;
-        }
-      });
-
-      child.stderr.on("data", (data) => {
-        const logText = data.toString().trim();
-        // OpenCode logs go to stderr, so treat them as info, not errors
-        if (logText.includes("INFO") || logText.includes("service=")) {
-          // Skip verbose internal logs, but show important ones
-          if (
-            logText.includes("created") ||
-            logText.includes("completed") ||
-            logText.includes("chatting")
-          ) {
-            this.log(`OpenCode Log: ${logText}`, "info");
-          }
-        } else {
-          this.log(`OpenCode Error: ${logText}`, "warning");
-        }
-      });
-
-      // Add timeout handling
-      const timeoutId = setTimeout(() => {
-        this.log(
-          "⏰ OpenCode taking longer than expected, but still running...",
-          "warning",
-        );
-        this.log(`📊 Process PID: ${child.pid}`, "info");
-        this.log(`📈 Output so far: ${output.length} characters`, "info");
-        this.log(
-          `🔍 You can check process status with: ps aux | grep ${child.pid}`,
-          "info",
-        );
-      }, 30000); // 30 second warning
-
       child.on("close", (code) => {
-        clearTimeout(timeoutId);
         this.log(`🔍 OpenCode process closed with code: ${code}`, "info");
 
         if (code === 0) {
           this.log("✅ OpenCode completed successfully", "success");
-          resolve(output);
+          resolve("");
         } else {
           this.log(`❌ OpenCode failed with exit code ${code}`, "error");
-          this.log(`📋 Full output: ${output.substring(0, 500)}...`, "error");
           reject(new Error(`OpenCode failed with exit code ${code}`));
         }
       });
 
       child.on("error", (error) => {
-        clearTimeout(timeoutId);
         this.log(`❌ OpenCode spawn error: ${error.message}`, "error");
         this.log(
           `💡 Try running 'which opencode' to check if it's installed`,
@@ -409,33 +349,6 @@ class SimpleRunner {
 
       this.log("🚀 OpenCode process started", "info");
       this.log(`🔧 Process PID: ${child.pid}`, "info");
-
-      // Monitor process status
-      const monitorInterval = setInterval(() => {
-        if (child.killed) {
-          clearInterval(monitorInterval);
-          return;
-        }
-
-        try {
-          // Check if process is still running
-          process.kill(child.pid, 0);
-          this.log(
-            `💓 OpenCode process ${child.pid} still alive, output: ${output.length} chars`,
-            "info",
-          );
-        } catch (error) {
-          this.log(
-            `💀 OpenCode process ${child.pid} died unexpectedly`,
-            "error",
-          );
-          clearInterval(monitorInterval);
-        }
-      }, 15000); // Check every 15 seconds
-
-      child.on("close", () => {
-        clearInterval(monitorInterval);
-      });
     });
   }
 
