@@ -109,6 +109,12 @@ class SimpleRunner {
         }
         this.render();
         break;
+      case "m":
+        this.mergeAgentBranch();
+        break;
+      case "d":
+        this.deleteAgentBranch();
+        break;
     }
   }
 
@@ -379,6 +385,41 @@ class SimpleRunner {
       this.log(`🌿 Switching to agent branch...`, "info");
       try {
         this.exec(`git checkout ${branchName}`);
+
+        // Check if there are changes in main that need to be merged
+        this.log(
+          `🔄 Checking for changes to merge from ${config.mainBranch}...`,
+          "info",
+        );
+        try {
+          const mergeBase = this.exec(
+            `git merge-base ${branchName} ${config.mainBranch}`,
+            { silent: true },
+          );
+          const mainHead = this.exec(`git rev-parse ${config.mainBranch}`, {
+            silent: true,
+          });
+
+          if (mergeBase.trim() !== mainHead.trim()) {
+            this.log(
+              `📥 Found changes in ${config.mainBranch}, merging...`,
+              "info",
+            );
+            this.exec(`git merge ${config.mainBranch} --no-edit`);
+            this.log(
+              `✅ Successfully merged changes from ${config.mainBranch}`,
+              "success",
+            );
+          } else {
+            this.log(
+              `✅ Agent branch is up to date with ${config.mainBranch}`,
+              "info",
+            );
+          }
+        } catch (mergeError) {
+          this.log(`⚠️ Could not auto-merge: ${mergeError.message}`, "warning");
+          this.log(`💡 You may need to resolve conflicts manually`, "warning");
+        }
       } catch (error) {
         // Branch doesn't exist, create it
         this.log(`📝 Creating agent branch...`, "info");
@@ -466,6 +507,70 @@ class SimpleRunner {
     if (this.autoInterval) {
       clearInterval(this.autoInterval);
       this.autoInterval = null;
+    }
+  }
+
+  mergeAgentBranch() {
+    try {
+      this.log(`🔄 Merging agent branch into ${config.mainBranch}...`, "info");
+
+      // Check if agent branch exists
+      try {
+        this.exec(`git show-ref --verify --quiet refs/heads/agent`, {
+          silent: true,
+        });
+      } catch (error) {
+        this.log(`❌ Agent branch does not exist`, "error");
+        return;
+      }
+
+      // Switch to main branch
+      this.exec(`git checkout ${config.mainBranch}`);
+
+      // Merge agent branch
+      this.exec(`git merge agent --no-edit`);
+
+      this.log(
+        `✅ Successfully merged agent branch into ${config.mainBranch}`,
+        "success",
+      );
+      this.log(`💡 Agent branch is still available for future work`, "info");
+    } catch (error) {
+      this.log(`❌ Failed to merge agent branch: ${error.message}`, "error");
+      this.log(`💡 You may need to resolve conflicts manually`, "warning");
+    }
+  }
+
+  deleteAgentBranch() {
+    try {
+      this.log(`🗑️ Deleting agent branch...`, "info");
+
+      // Check if agent branch exists
+      try {
+        this.exec(`git show-ref --verify --quiet refs/heads/agent`, {
+          silent: true,
+        });
+      } catch (error) {
+        this.log(`❌ Agent branch does not exist`, "error");
+        return;
+      }
+
+      // Make sure we're not on the agent branch
+      const currentBranch = this.exec(`git branch --show-current`, {
+        silent: true,
+      });
+      if (currentBranch.trim() === "agent") {
+        this.log(`🔄 Switching to ${config.mainBranch} first...`, "info");
+        this.exec(`git checkout ${config.mainBranch}`);
+      }
+
+      // Delete the agent branch
+      this.exec(`git branch -D agent`);
+
+      this.log(`✅ Successfully deleted agent branch`, "success");
+      this.log(`💡 Future tasks will create a new agent branch`, "info");
+    } catch (error) {
+      this.log(`❌ Failed to delete agent branch: ${error.message}`, "error");
     }
   }
 
@@ -563,7 +668,12 @@ class SimpleRunner {
       : `${colors.gray}[AUTO OFF]${colors.reset}`;
 
     console.log(`${colors.bright}🎮 Controls:${colors.reset}`);
-    console.log(`  [R]efresh • [S]tart • [A]uto • [Q]uit • ${autoStatus}`);
+    console.log(
+      `  [R]efresh • [S]tart • [A]uto • [M]erge • [D]elete • [Q]uit • ${autoStatus}`,
+    );
+    console.log(
+      `${colors.gray}  [M] = Merge agent branch to main • [D] = Delete agent branch${colors.reset}`,
+    );
     console.log();
 
     // Footer
