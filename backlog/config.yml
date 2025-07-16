@@ -1,6 +1,6 @@
 project_name: "task-"
 default_status: "To Do"
-statuses: ["To Do", "In Progress", "Done"]
+statuses: ["To Do","For Agent", "In Progress","Review", "Done"]
 labels: []
 milestones: []
 date_format: yyyy-mm-dd

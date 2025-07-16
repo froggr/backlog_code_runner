@@ -1,0 +1,29 @@
+{
+  "name": "backlog-opencode-runner",
+  "version": "1.0.0",
+  "description": "Automated task runner for backlog.md with OpenCode integration",
+  "main": "src/simple-runner.js",
+  "bin": {
+    "backlog-runner": "./src/simple-runner.js"
+  },
+  "scripts": {
+    "start": "node src/simple-runner.js",
+    "dev": "node src/simple-runner.js",
+    "runner": "node src/simple-runner.js"
+  },
+  "dependencies": {},
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "keywords": [
+    "backlog",
+    "opencode",
+    "automation",
+    "tasks",
+    "cli",
+    "markdown",
+    "kanban"
+  ],
+  "author": "Your Name",
+  "license": "MIT"
+}
