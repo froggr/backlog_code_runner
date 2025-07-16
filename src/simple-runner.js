@@ -298,19 +298,7 @@ class SimpleRunner {
   }
 
   async runOpenCode(task) {
-    const prompt = `
-Task: ${task.title}
-ID: ${task.id}
-Description: ${task.description}
-
-${
-  task.isRevision
-    ? "🔄 REVISION REQUEST - Please address the feedback and improve the implementation."
-    : "✨ NEW IMPLEMENTATION - Please implement this task with clean, maintainable code."
-}
-
-Focus on quality and completeness. Make atomic commits with descriptive messages.
-`;
+    const prompt = `please start ${task.id} in backlog. After completing please test your work to confirm you have completed the task. Then update the task with your code and document how you've confirmed you've met the requirements of the task and the status as ${config.reviewColumn}.`;
 
     return new Promise((resolve, reject) => {
       // First check if OpenCode is available
@@ -392,9 +380,7 @@ Focus on quality and completeness. Make atomic commits with descriptive messages
     try {
       this.log(`🚀 Starting task: ${task.title}`, "info");
 
-      // Move to progress column
-      await this.moveTaskToStatus(task.id, config.progressColumn);
-
+      // Create/switch to branch (LOCAL ONLY)
       // Create/switch to branch (LOCAL ONLY - NO REMOTE)
       const branchName = this.generateBranchName(task);
 
@@ -446,9 +432,7 @@ Focus on quality and completeness. Make atomic commits with descriptive messages
       // LOCAL ONLY - NO REMOTE PUSH OR PR CREATION
       this.log("✅ Changes committed locally", "success");
 
-      // Move to review column
-      await this.moveTaskToStatus(task.id, config.reviewColumn);
-
+      // OpenCode will handle moving task to review column
       // Return to main branch SAFELY
       try {
         this.exec(`git checkout ${config.mainBranch}`);
