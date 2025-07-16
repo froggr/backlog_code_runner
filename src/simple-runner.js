@@ -448,11 +448,29 @@ ${outputLog.trim()}
       // Always use 'agent' branch for all work
       const branchName = "agent";
 
-      // SAFETY: Always stash any uncommitted changes first
+      // SAFETY: Check if there are any tracked files that need stashing
       try {
-        this.exec('git stash push -m "Auto-stash before branch switch"', {
+        const statusOutput = this.exec("git status --porcelain", {
           silent: true,
         });
+        if (statusOutput.trim()) {
+          // Only stash if there are actually tracked changes
+          const trackedChanges = statusOutput
+            .split("\n")
+            .filter(
+              (line) =>
+                line.trim() &&
+                !line.includes("backlog/") &&
+                !line.startsWith("??"),
+            );
+
+          if (trackedChanges.length > 0) {
+            this.log("📦 Stashing tracked changes...", "info");
+            this.exec('git stash push -m "Auto-stash before branch switch"', {
+              silent: true,
+            });
+          }
+        }
       } catch (e) {
         // No changes to stash, that's fine
       }
@@ -529,9 +547,13 @@ ${outputLog.trim()}
       // Return to main branch SAFELY
       try {
         this.exec(`git checkout ${config.mainBranch}`);
-        // Restore any stashed changes
+        // Restore any stashed changes (only if we have a stash)
         try {
-          this.exec("git stash pop", { silent: true });
+          const stashList = this.exec("git stash list", { silent: true });
+          if (stashList.trim()) {
+            this.log("📦 Restoring stashed changes...", "info");
+            this.exec("git stash pop", { silent: true });
+          }
         } catch (e) {
           // No stash to pop, that's fine
         }
@@ -548,9 +570,13 @@ ${outputLog.trim()}
       // SAFE ERROR RECOVERY - return to main branch
       try {
         this.exec(`git checkout ${config.mainBranch}`);
-        // Restore any stashed changes
+        // Restore any stashed changes (only if we have a stash)
         try {
-          this.exec("git stash pop", { silent: true });
+          const stashList = this.exec("git stash list", { silent: true });
+          if (stashList.trim()) {
+            this.log("📦 Restoring stashed changes...", "info");
+            this.exec("git stash pop", { silent: true });
+          }
         } catch (e) {
           // No stash to pop, that's fine
         }
