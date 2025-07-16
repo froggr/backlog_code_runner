@@ -2,7 +2,7 @@
 
 const React = require("react");
 const { render } = require("ink");
-const BacklogRunnerTUI = require("./ui/InkTUI.jsx");
+const BacklogRunnerTUI = require("./ui/InkTUI.js");
 const TaskRunner = require("./runners/TaskRunner.js");
 
 // Create task runner instance
@@ -34,6 +34,10 @@ async function main() {
     // Handle graceful shutdown
     const shutdown = () => {
       unmount();
+      // Restore terminal state
+      process.stdout.write("\x1b[?1049l"); // Exit alternate screen
+      process.stdout.write("\x1b[0m"); // Reset colors
+      console.log("👋 Shutting down gracefully...");
       process.exit(0);
     };
 

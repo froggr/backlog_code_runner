@@ -5,6 +5,10 @@ const { spawn } = require("child_process");
 const fs = require("fs");
 const path = require("path");
 
+// Enter alternate screen mode for full terminal takeover
+process.stdout.write("\x1b[?1049h"); // Enter alternate screen
+process.stdout.write("\x1b[2J\x1b[0f"); // Clear screen and move cursor to top
+
 const BacklogRunnerTUI = ({ taskRunner }) => {
   const { exit } = useApp();
   const [tasks, setTasks] = useState([]);
@@ -302,14 +306,20 @@ const BacklogRunnerTUI = ({ taskRunner }) => {
         }
       }, 5000);
     }
-    return () => clearInterval(interval);
+    return () => {
+      if (interval) {
+        clearInterval(interval);
+      }
+    };
   }, [autoStart, stats.isProcessing, tasks]);
 
   // Load tasks on mount and periodic refresh
   useEffect(() => {
     loadTasks();
     const interval = setInterval(loadTasks, 10000);
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+    };
   }, []);
 
   // Get status color
@@ -343,26 +353,38 @@ const BacklogRunnerTUI = ({ taskRunner }) => {
     // Left Panel - Status & Controls
     React.createElement(
       Box,
-      { flexDirection: "column", width: "50%", paddingX: 2, paddingY: 1 },
+      {
+        flexDirection: "column",
+        width: "50%",
+        paddingX: 1,
+        paddingY: 1,
+        height: "100%",
+      },
       // Header
       React.createElement(
         Box,
         {
-          borderStyle: "double",
-          borderColor: "cyan",
-          paddingX: 2,
-          paddingY: 1,
+          paddingX: 1,
+          paddingY: 0,
+          marginBottom: 1,
+          flexShrink: 0,
         },
         React.createElement(
           Text,
           { color: "cyan", bold: true },
           "🔄 BACKLOG RUNNER",
         ),
+        React.createElement(Text, { color: "cyan" }, "─".repeat(48)),
       ),
       // Status
       React.createElement(
         Box,
-        { marginTop: 1 },
+        {
+          paddingX: 1,
+          paddingY: 0,
+          marginBottom: 1,
+          flexShrink: 0,
+        },
         React.createElement(
           Text,
           { color: getStatusColor() },
@@ -375,27 +397,35 @@ const BacklogRunnerTUI = ({ taskRunner }) => {
       // Task Queue
       React.createElement(
         Box,
-        { marginTop: 1, flexDirection: "column" },
+        {
+          paddingX: 1,
+          paddingY: 0,
+          marginBottom: 1,
+          flexDirection: "column",
+          flexGrow: 1,
+          minHeight: 8,
+        },
         React.createElement(
           Text,
           { color: "magenta", bold: true },
           `📋 Task Queue (${tasks.length}):`,
         ),
-        tasks.length === 0
-          ? React.createElement(
-              Text,
-              { color: "gray" },
-              ' No tasks in "For Agent" column',
-            )
-          : tasks
-              .slice(0, 5)
-              .map((task, index) =>
-                React.createElement(
-                  Box,
-                  { key: task.id, marginLeft: 2 },
+        React.createElement(Text, { color: "magenta" }, "─".repeat(48)),
+        React.createElement(
+          Box,
+          { flexDirection: "column", height: "100%", overflowY: "hidden" },
+          tasks.length === 0
+            ? React.createElement(
+                Text,
+                { color: "gray" },
+                ' No tasks in "For Agent" column',
+              )
+            : tasks
+                .slice(0, 5)
+                .map((task, index) =>
                   React.createElement(
                     Text,
-                    { color: index === 0 ? "green" : "white" },
+                    { key: task.id, color: index === 0 ? "green" : "white" },
                     index === 0 ? "▶ " : `${index + 1}. `,
                     task.title,
                     task.isRevision
@@ -403,19 +433,26 @@ const BacklogRunnerTUI = ({ taskRunner }) => {
                       : "",
                   ),
                 ),
-              ),
+        ),
         tasks.length > 5 &&
           React.createElement(
             Text,
-            { color: "gray", marginLeft: 2 },
+            { color: "gray" },
             `... and ${tasks.length - 5} more`,
           ),
       ),
       // Stats
       React.createElement(
         Box,
-        { marginTop: 1, flexDirection: "column" },
+        {
+          paddingX: 1,
+          paddingY: 0,
+          marginBottom: 1,
+          flexDirection: "column",
+          flexShrink: 0,
+        },
         React.createElement(Text, { color: "blue", bold: true }, "📊 Stats:"),
+        React.createElement(Text, { color: "blue" }, "─".repeat(48)),
         React.createElement(Text, null, ` Runtime: ${minutes}m ${seconds}s`),
         React.createElement(
           Text,
@@ -437,12 +474,19 @@ const BacklogRunnerTUI = ({ taskRunner }) => {
       // Controls
       React.createElement(
         Box,
-        { marginTop: 1, flexDirection: "column" },
+        {
+          paddingX: 1,
+          paddingY: 0,
+          marginBottom: 1,
+          flexDirection: "column",
+          flexShrink: 0,
+        },
         React.createElement(
           Text,
           { color: "yellow", bold: true },
           "🎮 Controls:",
         ),
+        React.createElement(Text, { color: "yellow" }, "─".repeat(48)),
         React.createElement(
           Text,
           null,
@@ -458,7 +502,12 @@ const BacklogRunnerTUI = ({ taskRunner }) => {
       // Help
       React.createElement(
         Box,
-        { marginTop: 1, flexDirection: "column" },
+        {
+          paddingX: 1,
+          paddingY: 0,
+          flexDirection: "column",
+          flexShrink: 0,
+        },
         React.createElement(Text, { color: "gray" }, "[B] = Create snapshot"),
         React.createElement(
           Text,
@@ -470,25 +519,38 @@ const BacklogRunnerTUI = ({ taskRunner }) => {
     // Right Panel - Logs & Output
     React.createElement(
       Box,
-      { flexDirection: "column", width: "50%", paddingX: 2, paddingY: 1 },
+      {
+        flexDirection: "column",
+        width: "50%",
+        paddingX: 1,
+        paddingY: 1,
+        height: "100%",
+      },
       // OpenCode Output
       React.createElement(
         Box,
         {
           flexDirection: "column",
           height: "60%",
-          borderStyle: "single",
-          borderColor: "green",
           paddingX: 1,
+          paddingY: 0,
+          marginBottom: 1,
+          flexShrink: 0,
         },
         React.createElement(
           Text,
           { color: "green", bold: true },
           "🤖 OpenCode Output:",
         ),
+        React.createElement(Text, { color: "green" }, "─".repeat(48)),
         React.createElement(
           Box,
-          { flexDirection: "column", height: "100%", overflowY: "hidden" },
+          {
+            flexDirection: "column",
+            height: "100%",
+            overflowY: "hidden",
+            flexGrow: 1,
+          },
           openCodeOutput.length === 0
             ? React.createElement(
                 Text,
@@ -501,7 +563,7 @@ const BacklogRunnerTUI = ({ taskRunner }) => {
                   React.createElement(
                     Text,
                     { key: index, color: "white" },
-                    line.length > 80 ? line.substring(0, 77) + "..." : line,
+                    line.length > 70 ? line.substring(0, 67) + "..." : line,
                   ),
                 ),
         ),
@@ -512,19 +574,24 @@ const BacklogRunnerTUI = ({ taskRunner }) => {
         {
           flexDirection: "column",
           height: "40%",
-          borderStyle: "single",
-          borderColor: "blue",
           paddingX: 1,
-          marginTop: 1,
+          paddingY: 0,
+          flexShrink: 0,
         },
         React.createElement(
           Text,
           { color: "blue", bold: true },
           "📜 Activity Logs:",
         ),
+        React.createElement(Text, { color: "blue" }, "─".repeat(48)),
         React.createElement(
           Box,
-          { flexDirection: "column", height: "100%", overflowY: "hidden" },
+          {
+            flexDirection: "column",
+            height: "100%",
+            overflowY: "hidden",
+            flexGrow: 1,
+          },
           logs.length === 0
             ? React.createElement(Text, { color: "gray" }, "No activity yet...")
             : logs

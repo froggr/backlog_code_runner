@@ -2,15 +2,16 @@
   "name": "backlog-opencode-runner",
   "version": "1.0.0",
   "description": "Automated task runner for backlog.md with OpenCode integration",
-  "main": "src/simple-runner.js",
+  "main": "src/ink-runner.js",
   "bin": {
-    "backlog-runner": "./src/simple-runner.js"
+    "backlog-runner": "./src/ink-runner.js"
   },
   "scripts": {
-    "start": "node src/simple-runner.js",
+    "start": "node src/ink-runner.js",
     "ink": "node src/ink-runner.js",
-    "dev": "node src/simple-runner.js",
-    "runner": "node src/simple-runner.js",
+    "dev": "node src/ink-runner.js",
+    "runner": "node src/ink-runner.js",
+    "simple": "node src/simple-runner.js",
     "global": "npm install -g .",
     "uninstall": "npm uninstall -g backlog-opencode-runner"
   },
