@@ -10,10 +10,29 @@ const prompt =
 console.log(`Running: opencode run "${prompt.substring(0, 80)}..."`);
 
 const child = spawn("opencode", ["run", prompt], {
-  stdio: "inherit",
+  stdio: "pipe",
 });
 
+let output = "";
+
+child.stdout.on("data", (data) => {
+  output += data.toString();
+  console.log(`OpenCode: ${data.toString()}`);
+});
+
+child.stderr.on("data", (data) => {
+  console.log(`OpenCode Error: ${data.toString()}`);
+});
+
+// Add timeout warning
+const timeoutId = setTimeout(() => {
+  console.log("⏰ OpenCode taking longer than expected...");
+  console.log(`📊 Process PID: ${child.pid}`);
+  console.log(`📈 Output so far: ${output.length} characters`);
+}, 30000);
+
 child.on("close", (code) => {
+  clearTimeout(timeoutId);
   console.log(`\nOpenCode process exited with code: ${code}`);
 
   if (code === 0) {
@@ -43,5 +62,8 @@ child.on("close", (code) => {
 });
 
 child.on("error", (error) => {
+  clearTimeout(timeoutId);
   console.log(`❌ Error spawning OpenCode: ${error.message}`);
 });
+
+console.log(`🚀 OpenCode process started with PID: ${child.pid}`);

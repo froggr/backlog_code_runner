@@ -317,8 +317,9 @@ class SimpleRunner {
         return;
       }
 
-      this.log("🤖 Running OpenCode with command: opencode run", "info");
+      this.log("🤖 Running OpenCode...", "info");
       this.log(`📝 Prompt: ${prompt.substring(0, 100)}...`, "info");
+      this.log(`⏱️ Timeout set to: ${config.timeout / 1000} seconds`, "info");
 
       const child = spawn("opencode", ["run", prompt], {
         stdio: "pipe",
@@ -326,19 +327,29 @@ class SimpleRunner {
       });
 
       let output = "";
+      let lastLogTime = Date.now();
 
       child.stdout.on("data", (data) => {
         output += data.toString();
-        // Log progress with more detail
+        const now = Date.now();
+
+        // Log progress with more detail and timing
         const lines = data
           .toString()
           .split("\n")
           .filter((line) => line.trim());
+
         lines.forEach((line) => {
           if (line.trim()) {
             this.log(`OpenCode: ${line.trim()}`, "info");
           }
         });
+
+        // Show activity indicator every 10 seconds if no new output
+        if (now - lastLogTime > 10000) {
+          this.log("🔄 OpenCode still running...", "info");
+          lastLogTime = now;
+        }
       });
 
       child.stderr.on("data", (data) => {
@@ -346,7 +357,22 @@ class SimpleRunner {
         this.log(`OpenCode Error: ${errorText}`, "warning");
       });
 
+      // Add timeout handling
+      const timeoutId = setTimeout(() => {
+        this.log(
+          "⏰ OpenCode taking longer than expected, but still running...",
+          "warning",
+        );
+        this.log(`📊 Process PID: ${child.pid}`, "info");
+        this.log(`📈 Output so far: ${output.length} characters`, "info");
+        this.log(
+          `🔍 You can check process status with: ps aux | grep ${child.pid}`,
+          "info",
+        );
+      }, 30000); // 30 second warning
+
       child.on("close", (code) => {
+        clearTimeout(timeoutId);
         this.log(`🔍 OpenCode process closed with code: ${code}`, "info");
 
         if (code === 0) {
@@ -354,12 +380,13 @@ class SimpleRunner {
           resolve(output);
         } else {
           this.log(`❌ OpenCode failed with exit code ${code}`, "error");
-          this.log(`📋 Full output: ${output}`, "error");
+          this.log(`📋 Full output: ${output.substring(0, 500)}...`, "error");
           reject(new Error(`OpenCode failed with exit code ${code}`));
         }
       });
 
       child.on("error", (error) => {
+        clearTimeout(timeoutId);
         this.log(`❌ OpenCode spawn error: ${error.message}`, "error");
         this.log(
           `💡 Try running 'which opencode' to check if it's installed`,
@@ -368,8 +395,35 @@ class SimpleRunner {
         reject(error);
       });
 
-      // Add process start confirmation
       this.log("🚀 OpenCode process started", "info");
+      this.log(`🔧 Process PID: ${child.pid}`, "info");
+
+      // Monitor process status
+      const monitorInterval = setInterval(() => {
+        if (child.killed) {
+          clearInterval(monitorInterval);
+          return;
+        }
+
+        try {
+          // Check if process is still running
+          process.kill(child.pid, 0);
+          this.log(
+            `💓 OpenCode process ${child.pid} still alive, output: ${output.length} chars`,
+            "info",
+          );
+        } catch (error) {
+          this.log(
+            `💀 OpenCode process ${child.pid} died unexpectedly`,
+            "error",
+          );
+          clearInterval(monitorInterval);
+        }
+      }, 15000); // Check every 15 seconds
+
+      child.on("close", () => {
+        clearInterval(monitorInterval);
+      });
     });
   }
 
@@ -473,18 +527,12 @@ class SimpleRunner {
       clearInterval(this.autoInterval);
     }
 
-    this.log("🔄 Starting auto-polling...", "info");
     this.autoInterval = setInterval(async () => {
-      this.log("🔍 Auto-start checking for tasks...", "info");
       if (!this.isProcessing) {
         const tasks = await this.getTasks();
-        this.log(`📋 Found ${tasks.length} tasks in queue`, "info");
         if (tasks.length > 0) {
-          this.log("🚀 Auto-starting next task...", "info");
           await this.processTask(tasks[0]);
         }
-      } else {
-        this.log("⏸️ Still processing, waiting...", "info");
       }
     }, config.pollInterval);
   }
@@ -493,7 +541,6 @@ class SimpleRunner {
     if (this.autoInterval) {
       clearInterval(this.autoInterval);
       this.autoInterval = null;
-      this.log("🛑 Auto-polling stopped", "info");
     }
   }
 
@@ -622,8 +669,6 @@ class SimpleRunner {
     // Auto-process if enabled
     if (config.autoStart) {
       this.startAutoPolling();
-    } else {
-      this.log("⏸️ Auto-start disabled, waiting for manual start", "info");
     }
   }
 
