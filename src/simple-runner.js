@@ -313,13 +313,21 @@ Focus on quality and completeness. Make atomic commits with descriptive messages
 `;
 
     return new Promise((resolve, reject) => {
-      // Write prompt to temp file
-      const tempFile = path.join(process.cwd(), ".opencode-prompt.tmp");
-      fs.writeFileSync(tempFile, prompt);
+      // First check if OpenCode is available
+      try {
+        execSync("which opencode", { stdio: "pipe" });
+      } catch (error) {
+        this.log("❌ OpenCode not found in PATH", "error");
+        reject(
+          new Error("OpenCode CLI not found. Please install OpenCode first."),
+        );
+        return;
+      }
 
-      this.log("🤖 Running OpenCode...", "info");
+      this.log("🤖 Running OpenCode with command: opencode run", "info");
+      this.log(`📝 Prompt: ${prompt.substring(0, 100)}...`, "info");
 
-      const child = spawn("opencode", ["run", "--prompt-file", tempFile], {
+      const child = spawn("opencode", ["run", prompt], {
         stdio: "pipe",
         timeout: config.timeout,
       });
@@ -328,45 +336,47 @@ Focus on quality and completeness. Make atomic commits with descriptive messages
 
       child.stdout.on("data", (data) => {
         output += data.toString();
-        // Log progress without spamming
+        // Log progress with more detail
         const lines = data
           .toString()
           .split("\n")
           .filter((line) => line.trim());
-        if (lines.length > 0) {
-          this.log(
-            `OpenCode: ${lines[lines.length - 1].substring(0, 80)}...`,
-            "info",
-          );
-        }
+        lines.forEach((line) => {
+          if (line.trim()) {
+            this.log(`OpenCode: ${line.trim()}`, "info");
+          }
+        });
       });
 
       child.stderr.on("data", (data) => {
-        this.log(`OpenCode Error: ${data.toString().trim()}`, "warning");
+        const errorText = data.toString().trim();
+        this.log(`OpenCode Error: ${errorText}`, "warning");
       });
 
       child.on("close", (code) => {
-        try {
-          fs.unlinkSync(tempFile);
-        } catch (e) {}
+        this.log(`🔍 OpenCode process closed with code: ${code}`, "info");
 
         if (code === 0) {
           this.log("✅ OpenCode completed successfully", "success");
           resolve(output);
         } else {
           this.log(`❌ OpenCode failed with exit code ${code}`, "error");
+          this.log(`📋 Full output: ${output}`, "error");
           reject(new Error(`OpenCode failed with exit code ${code}`));
         }
       });
 
       child.on("error", (error) => {
-        try {
-          fs.unlinkSync(tempFile);
-        } catch (e) {}
-
-        this.log(`❌ OpenCode error: ${error.message}`, "error");
+        this.log(`❌ OpenCode spawn error: ${error.message}`, "error");
+        this.log(
+          `💡 Try running 'which opencode' to check if it's installed`,
+          "error",
+        );
         reject(error);
       });
+
+      // Add process start confirmation
+      this.log("🚀 OpenCode process started", "info");
     });
   }
 
@@ -414,7 +424,9 @@ Focus on quality and completeness. Make atomic commits with descriptive messages
       }
 
       // Run OpenCode
+      this.log("📝 About to run OpenCode...", "info");
       await this.runOpenCode(task);
+      this.log("✅ OpenCode execution completed", "success");
 
       // Commit changes
       this.log("📦 Staging changes...", "info");

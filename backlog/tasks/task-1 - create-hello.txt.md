@@ -1,7 +1,7 @@
 ---
 id: task-1
 title: create hello.txt
-status: "In Progress"
+status: "For Agent"
 assignee: []
 created_date: '2025-07-16'
 labels: []
