@@ -413,7 +413,9 @@ class SimpleRunner {
         this.exec("git diff --cached --exit-code", { silent: true });
         this.log("ℹ️ No changes to commit", "warning");
       } catch {
-        const commitMessage = task.id;
+        const commitMessage = task.isRevision
+          ? `fix: address feedback for ${task.title}`
+          : `feat: implement ${task.title}`;
         this.exec(`git commit -m "${commitMessage}"`);
         this.log("💾 Changes committed", "success");
       }
