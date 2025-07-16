@@ -25,7 +25,7 @@ let config = {
   progressColumn: "In Progress",
   reviewColumn: "Review",
   completedColumn: "Done",
-  pollInterval: 30000,
+  pollInterval: 5000,
   backlogPath: "./backlog/tasks",
   autoStart: false,
 
@@ -51,6 +51,7 @@ class SimpleRunner {
     this.logs = [];
     this.currentTask = null;
     this.isProcessing = false;
+    this.autoInterval = null;
     this.stats = {
       completed: 0,
       errors: 0,
@@ -100,6 +101,12 @@ class SimpleRunner {
           `🔄 Auto-start ${config.autoStart ? "enabled" : "disabled"}`,
           "info",
         );
+
+        if (config.autoStart) {
+          this.startAutoPolling();
+        } else {
+          this.stopAutoPolling();
+        }
         this.render();
         break;
     }
@@ -461,6 +468,35 @@ class SimpleRunner {
     }
   }
 
+  startAutoPolling() {
+    if (this.autoInterval) {
+      clearInterval(this.autoInterval);
+    }
+
+    this.log("🔄 Starting auto-polling...", "info");
+    this.autoInterval = setInterval(async () => {
+      this.log("🔍 Auto-start checking for tasks...", "info");
+      if (!this.isProcessing) {
+        const tasks = await this.getTasks();
+        this.log(`📋 Found ${tasks.length} tasks in queue`, "info");
+        if (tasks.length > 0) {
+          this.log("🚀 Auto-starting next task...", "info");
+          await this.processTask(tasks[0]);
+        }
+      } else {
+        this.log("⏸️ Still processing, waiting...", "info");
+      }
+    }, config.pollInterval);
+  }
+
+  stopAutoPolling() {
+    if (this.autoInterval) {
+      clearInterval(this.autoInterval);
+      this.autoInterval = null;
+      this.log("🛑 Auto-polling stopped", "info");
+    }
+  }
+
   async startNextTask() {
     if (this.isProcessing) {
       this.log("⏸️ Already processing a task", "warning");
@@ -585,19 +621,15 @@ class SimpleRunner {
 
     // Auto-process if enabled
     if (config.autoStart) {
-      setInterval(async () => {
-        if (!this.isProcessing) {
-          const tasks = await this.getTasks();
-          if (tasks.length > 0) {
-            await this.processTask(tasks[0]);
-          }
-        }
-      }, config.pollInterval);
+      this.startAutoPolling();
+    } else {
+      this.log("⏸️ Auto-start disabled, waiting for manual start", "info");
     }
   }
 
   shutdown() {
     this.log("👋 Shutting down...", "info");
+    this.stopAutoPolling();
     if (this.rl) {
       this.rl.close();
     }
