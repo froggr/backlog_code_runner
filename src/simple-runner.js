@@ -321,7 +321,7 @@ class SimpleRunner {
       this.log(`📝 Prompt: ${prompt.substring(0, 100)}...`, "info");
       this.log(`⏱️ Timeout set to: ${config.timeout / 1000} seconds`, "info");
 
-      const child = spawn("opencode", ["run", prompt], {
+      const child = spawn("opencode", ["run", prompt, "--print-logs"], {
         stdio: "pipe",
         timeout: config.timeout,
       });
@@ -353,8 +353,20 @@ class SimpleRunner {
       });
 
       child.stderr.on("data", (data) => {
-        const errorText = data.toString().trim();
-        this.log(`OpenCode Error: ${errorText}`, "warning");
+        const logText = data.toString().trim();
+        // OpenCode logs go to stderr, so treat them as info, not errors
+        if (logText.includes("INFO") || logText.includes("service=")) {
+          // Skip verbose internal logs, but show important ones
+          if (
+            logText.includes("created") ||
+            logText.includes("completed") ||
+            logText.includes("chatting")
+          ) {
+            this.log(`OpenCode Log: ${logText}`, "info");
+          }
+        } else {
+          this.log(`OpenCode Error: ${logText}`, "warning");
+        }
       });
 
       // Add timeout handling
