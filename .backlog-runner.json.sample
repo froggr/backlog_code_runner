@@ -1,0 +1,18 @@
+{
+  "todoColumn": "For Agent",
+  "progressColumn": "In Progress",
+  "reviewColumn": "Review",
+  "completedColumn": "Done",
+  "backlogPath": "./backlog/tasks",
+  "mainBranch": "main",
+  "branchPrefix": "task",
+  "timeout": 300000,
+  "autoStart": false,
+  "pollInterval": 10000,
+  "maxRetries": 3,
+  "gitCommitPrefix": "feat",
+  "worktreePath": ".agent-worktree",
+  "openCodeCommand": "opencode run",
+  "preserveOutput": true,
+  "logLevel": "info"
+}

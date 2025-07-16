@@ -1,0 +1,12 @@
+{
+  "todoColumn": "For Agent",
+  "progressColumn": "In Progress",
+  "reviewColumn": "Review",
+  "completedColumn": "Done",
+  "backlogPath": "./backlog/tasks",
+  "mainBranch": "main",
+  "branchPrefix": "task",
+  "timeout": 300000,
+  "autoStart": false,
+  "pollInterval": 10000
+}
