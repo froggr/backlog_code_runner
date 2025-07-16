@@ -28,7 +28,7 @@ let config = {
   pollInterval: 30000,
   backlogPath: "./backlog/tasks",
   autoStart: false,
-  branchPrefix: "task",
+
   timeout: 300000,
 };
 
@@ -291,10 +291,8 @@ class SimpleRunner {
   }
 
   generateBranchName(task) {
-    // Simple: just task-{number}
-    const taskNum =
-      task.id.match(/task-(\d+)/)?.[1] || task.id.replace(/[^0-9]/g, "");
-    return `${config.branchPrefix}-${taskNum}`;
+    // Always use 'agent' branch for all work
+    return "agent";
   }
 
   async runOpenCode(task) {
@@ -380,9 +378,8 @@ class SimpleRunner {
     try {
       this.log(`🚀 Starting task: ${task.title}`, "info");
 
-      // Create/switch to branch (LOCAL ONLY)
-      // Create/switch to branch (LOCAL ONLY - NO REMOTE)
-      const branchName = this.generateBranchName(task);
+      // Always use 'agent' branch for all work
+      const branchName = "agent";
 
       // SAFETY: Always stash any uncommitted changes first
       try {
@@ -393,20 +390,14 @@ class SimpleRunner {
         // No changes to stash, that's fine
       }
 
-      if (task.isRevision && task.branch) {
-        this.log(`🔄 Switching to existing branch: ${task.branch}`, "info");
-        this.exec(`git checkout ${task.branch}`);
-      } else {
-        this.log(`🌿 Creating/switching to branch: ${branchName}`, "info");
+      this.log(`🌿 Switching to agent branch...`, "info");
+      try {
+        this.exec(`git checkout ${branchName}`);
+      } catch (error) {
+        // Branch doesn't exist, create it
+        this.log(`📝 Creating agent branch...`, "info");
         this.exec(`git checkout ${config.mainBranch}`);
-        // NO PULL - LOCAL ONLY
-
-        try {
-          this.exec(`git checkout -b ${branchName}`);
-        } catch (error) {
-          // Branch might exist, try to switch
-          this.exec(`git checkout ${branchName}`);
-        }
+        this.exec(`git checkout -b ${branchName}`);
       }
 
       // Run OpenCode
