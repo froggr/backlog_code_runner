@@ -8,12 +8,16 @@
   },
   "scripts": {
     "start": "node src/simple-runner.js",
+    "ink": "node src/ink-runner.js",
     "dev": "node src/simple-runner.js",
     "runner": "node src/simple-runner.js",
     "global": "npm install -g .",
     "uninstall": "npm uninstall -g backlog-opencode-runner"
   },
-  "dependencies": {},
+  "dependencies": {
+    "ink": "^3.2.0",
+    "react": "^17.0.2"
+  },
   "engines": {
     "node": ">=14.0.0"
   },
