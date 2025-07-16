@@ -327,9 +327,27 @@ class SimpleRunner {
       this.log(`📝 Prompt: ${prompt.substring(0, 100)}...`, "info");
       this.log("🔄 OpenCode will run in interactive mode", "info");
 
+      // Capture output while still allowing interactive mode
+      let outputLog = "";
+      const startTime = new Date().toISOString();
+
       const child = spawn("opencode", ["run", prompt], {
-        stdio: "inherit",
+        stdio: ["inherit", "pipe", "pipe"],
         timeout: config.timeout,
+      });
+
+      // Capture stdout and display it
+      child.stdout.on("data", (data) => {
+        const output = data.toString();
+        outputLog += output;
+        process.stdout.write(output); // Display in real-time
+      });
+
+      // Capture stderr and display it
+      child.stderr.on("data", (data) => {
+        const output = data.toString();
+        outputLog += output;
+        process.stderr.write(output); // Display in real-time
       });
 
       child.on("close", (code) => {
@@ -337,7 +355,12 @@ class SimpleRunner {
 
         if (code === 0) {
           this.log("✅ OpenCode completed successfully", "success");
-          resolve("");
+          this.log("📋 Appending OpenCode log to task...", "info");
+
+          // Append OpenCode log to task
+          this.appendOpenCodeLogToTask(task, outputLog, startTime);
+
+          resolve(outputLog);
         } else {
           this.log(`❌ OpenCode failed with exit code ${code}`, "error");
           reject(new Error(`OpenCode failed with exit code ${code}`));
@@ -356,6 +379,43 @@ class SimpleRunner {
       this.log("🚀 OpenCode process started", "info");
       this.log(`🔧 Process PID: ${child.pid}`, "info");
     });
+  }
+
+  async appendOpenCodeLogToTask(task, outputLog, startTime) {
+    try {
+      const taskPath = path.join(config.backlogPath, task.id);
+
+      if (!fs.existsSync(taskPath)) {
+        this.log(`⚠️ Task file not found: ${taskPath}`, "warning");
+        return;
+      }
+
+      let content = fs.readFileSync(taskPath, "utf8");
+
+      // Create the OpenCode log section
+      const timestamp = new Date().toISOString();
+      const logSection = `
+
+## OpenCode Execution Log
+
+**Started:** ${startTime}
+**Completed:** ${timestamp}
+
+\`\`\`
+${outputLog}
+\`\`\`
+
+---
+`;
+
+      // Append the log section to the task
+      content += logSection;
+
+      fs.writeFileSync(taskPath, content);
+      this.log("✅ OpenCode log appended to task", "success");
+    } catch (error) {
+      this.log(`❌ Failed to append log to task: ${error.message}`, "error");
+    }
   }
 
   async processTask(task) {
