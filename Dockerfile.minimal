@@ -1,0 +1,25 @@
+# Minimal Node.js container (~200MB vs ~2GB+)
+FROM node:20-alpine
+
+# Install only essential packages
+RUN apk add --no-cache git
+
+# Install global packages
+RUN npm install -g npm@latest \
+    backlog.md \
+    opencode
+
+# Copy and install this project
+COPY package*.json ./
+RUN npm install
+COPY . .
+RUN npm install -g .
+
+# Create workspace directory
+RUN mkdir -p /workspace
+
+# Set default working directory to mounted project
+WORKDIR /workspace
+
+# Default command
+CMD ["sh"]
