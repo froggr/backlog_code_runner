@@ -9,9 +9,7 @@ RUN apt-get update && apt-get install -y \
 
 # Install global packages
 RUN npm install -g npm@latest \
-    backlog.md \
-    opencode-ai \
-    @executeautomation/playwright-mcp-server
+    backlog.md
 
 # Playwright browsers are already installed in the base image
 # No need to install again - this saves ~500MB
@@ -25,9 +23,11 @@ RUN npm install -g .
 # Create workspace directory
 RUN mkdir -p /workspace
 
-# Create MCP config for OpenCode
-RUN mkdir -p /root/.config/opencode
-RUN echo '{"mcpServers":{"playwright":{"command":"npx","args":["@executeautomation/playwright-mcp-server"],"env":{"PLAYWRIGHT_BROWSERS_PATH":"/ms-playwright"}}}}' > /root/.config/opencode/mcp.json
+# Install OpenCode using official installer
+RUN curl -fsSL https://opencode.ai/install | bash
+
+# Ensure it's in PATH
+ENV PATH="/root/.opencode/bin:$PATH"
 
 # Set default working directory to mounted project
 WORKDIR /workspace

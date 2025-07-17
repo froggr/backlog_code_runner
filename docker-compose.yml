@@ -3,14 +3,14 @@ services:
     build: .
     container_name: opencode-sandbox
     volumes:
-      # Mount specified project directory from .env
+      # Mount project directory from .env
       - ${PROJECT_PATH}:/workspace
-      # Mount your opencode auth from host
-      - ~/.local/share/opencode:/root/.local/share/opencode
       # Mount git config
       - ~/.gitconfig:/root/.gitconfig
       # Mount SSH keys (optional)
       - ~/.ssh:/root/.ssh:ro
+      # Mount OpenCode credentials from host
+      - ~/.local/share/opencode:/root/.local/share/opencode
     working_dir: /workspace
     stdin_open: true
     tty: true

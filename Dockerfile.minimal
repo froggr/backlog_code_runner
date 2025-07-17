@@ -1,13 +1,22 @@
-# Minimal Node.js container (~200MB vs ~2GB+)
-FROM node:20-alpine
+# Minimal Node.js container with glibc support
+FROM node:20-slim
 
 # Install only essential packages
-RUN apk add --no-cache git
+RUN apt-get update && apt-get install -y \
+    git \
+    curl \
+    unzip \
+    && rm -rf /var/lib/apt/lists/*
 
 # Install global packages
 RUN npm install -g npm@latest \
-    backlog.md \
-    opencode
+    backlog.md
+
+# Install OpenCode using official installer
+RUN curl -fsSL https://opencode.ai/install | bash
+
+# Ensure it's in PATH
+ENV PATH="/root/.opencode/bin:$PATH"
 
 # Copy and install this project
 COPY package*.json ./

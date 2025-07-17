@@ -36,6 +36,19 @@ npm install
 npm run global  # Install globally from local
 ```
 
+### Docker (Linux)
+
+```bash
+# Set your project path
+export PROJECT_PATH=/path/to/your/project
+
+# Start the sandbox
+docker compose up -d
+
+# Use the container
+docker compose exec opencode-sandbox bash
+```
+
 ## Quick Start
 
 1. **Initialize your project** with backlog.md:
